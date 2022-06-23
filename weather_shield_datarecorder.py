@@ -9,19 +9,10 @@ Just a python script which
 Author: Abhishek Anil Deshmukh (deshmukhabhishek369@gmail.com)
 """
 import serial
-import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime, date
 import pandas as pd
-
-def get_data_store():
-    return {
-        "datetime": [],
-        "humidity": [],
-        "temperature": [],
-        "pressure": [],
-        "light": [],
-    }
+from live_plot import Plot
 
 
 def main():
@@ -33,25 +24,26 @@ def main():
     except Exception as e:
         print(e, "\n")
         print("="*20)
-        print("One of the fllowing issues has occured:\n- Arduino is not properly connected\n- The port name is not correct\n\t- Try `python -m serial.tools.list_ports` to list all the ports")
+        print(" MAYBE:\nOne of the following issues has occured:\n- Arduino is not properly connected\n- The port name is not correct\n\t- Try `python -m serial.tools.list_ports` to list all the ports")
         print("="*20)
-        print("retrying in 10 seconds")
         return
 
     # variables to be used
-    data = get_data_store()
+    data = {
+        "datetime": [],
+        "humidity": [],
+        "temperature": [],
+        "pressure": [],
+        "light": [],
+    }
     x_width = 100
-    x_vec = np.arange(0, x_width)
-    h_vec, t_vec, p_vec, l_vec = np.zeros((4, len(x_vec)))
-    lines, axes = [], []
-    def get_file_name():return str(datetime.now())[:-7].replace(":", "_") + ".csv"
+    h_vec, t_vec, p_vec, l_vec = np.zeros((4, x_width))
+    def get_file_name(): return f"./{str(datetime.now())[:-7].replace(':', '_')}.csv"
     file_name = get_file_name()
+    dashboard = Plot(x_width)
 
     while True:
-        # 1 line at a time
-        line = ser.readline()
-        line = line.decode("utf-8")
-
+        line = ser.readline().decode("utf-8")
         try:  # parsing the input
             params = line.split(", ")[:-1]
             params = list(map(lambda x: x.split(" = ")[-1], params))
@@ -71,7 +63,6 @@ def main():
         data["pressure"].append(pressure)
         data["light"].append(light)
 
-        print(data["datetime"][0].date(), datetime.today().date())
         if data["datetime"][0].date() != datetime.today().date():
             # separating data
             old_data = {}
@@ -90,43 +81,11 @@ def main():
                 pd.DataFrame(data).to_csv(file_name, index=False)
             except Exception as e:
                 print(e)
-                print("MAYBE: The file which is being written to seems to be opened by another application. Please close it too continue writing to file.")
+                print("MAYBE: The file which is being written to seems to be opened by another application. Please close it to continue writing to file.")
 
         # making/updating the plots on the dashboard
         y_vecs = np.array([data["humidity"], data["temperature"], data["pressure"], data["light"]])
-        lines, axes = update_plot(y_vecs, lines, axes, x_width)
-
-
-def update_plot(y_vecs, lines, axes, size):
-    # cleaning input
-    if len(y_vecs[0]) > size:
-        y_vecs = y_vecs[0:4, -size:]
-    else:
-        x_vec = np.arange(0, size)
-        y = np.zeros((4, size))
-        y[0:4, size - len(y_vecs[0]) :] = y_vecs
-        y_vecs = y
-    # only the first time make plots
-    if lines == []:
-        lines = [[], [], [], []]
-        axes = []
-        plt.ion()
-        fig = plt.figure(num="Weather station output")
-        labels = ["Humidity (%)", "Temperature (F)", "Pressure (Pa)", "Light (V)"]
-        for i in range(4):
-            axes.append(fig.add_subplot(221 + i))
-            (lines[i],) = axes[-1].plot(x_vec, y_vecs[i], "-o", alpha=0.8)
-            axes[-1].set_ylabel(labels[i])
-            axes[-1].set_xlabel("Time (s)")
-            axes[-1].grid()
-    else: # then just update the data
-        for i in range(4):
-            ar_max, ar_min = max(y_vecs[i]), min(y_vecs[i])
-            pad = 0.2 * (ar_max - ar_min)
-            lines[i].set_ydata(y_vecs[i])
-            axes[i].set_ylim([ar_min - pad, ar_max + pad])
-        plt.pause(0.1)
-    return lines, axes  # To get these back later on
+        dashboard.update_plot(y_vecs)
 
 
 if __name__ == "__main__":
