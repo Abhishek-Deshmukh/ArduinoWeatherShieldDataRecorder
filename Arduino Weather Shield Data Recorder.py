@@ -1,9 +1,9 @@
 """
-Weather Shield Dashboard
+Arduino Weather Shield Data Recorder
 -----------------------
 
 Just a python script which
-- stores the data live into a file (name: YYYY-MM-DD.csv) with time
+- stores the data live into a file (name: YYYY-MM-DD HH_MM_SS.csv) with time
 - shows a dashboard with a plot which shows the values of the input for the last 100 seconds
 
 Author: Abhishek Anil Deshmukh (deshmukhabhishek369@gmail.com)
@@ -20,7 +20,7 @@ def main():
     # arduino specific params
 
     config = configparser.ConfigParser()
-    config.read("./config.ini")
+    config.read("./AWSDRconfig.ini")
     serial_port = config["Arduino"]["SerialPort"]
     baud_rate = int(config["Arduino"]["BaudRate"])
     try:  # connecting to a arduino
