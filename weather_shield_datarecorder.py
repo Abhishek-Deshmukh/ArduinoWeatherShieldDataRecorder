@@ -13,12 +13,16 @@ import numpy as np
 from datetime import datetime, date
 import pandas as pd
 from live_plot import Plot
+import configparser
 
 
 def main():
     # arduino specific params
-    serial_port = "COM6"
-    baud_rate = 9600
+
+    config = configparser.ConfigParser()
+    config.read("./config.ini")
+    serial_port = config["Arduino"]["SerialPort"]
+    baud_rate = int(config["Arduino"]["BaudRate"])
     try:  # connecting to a arduino
         ser = serial.Serial(serial_port, baud_rate)
     except Exception as e:
