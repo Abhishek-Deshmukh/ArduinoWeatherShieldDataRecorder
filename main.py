@@ -1,33 +1,58 @@
+"""
+Weather Shield Dashboard
+-----------------------
+
+Just a python script which
+- stores the data live into a file (name: YYYY-MM-DD.csv) with time
+- shows a dashboard with a plot which shows the values of the input for the last 100 seconds
+
+Author: Abhishek Anil Deshmukh (deshmukhabhishek369@gmail.com)
+"""
 import serial
 import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime, date
 import pandas as pd
 
-
-def main():
-    # arduino specific params
-    serial_port = "COM6"
-    baud_rate = 9600
-    ser = serial.Serial(serial_port, baud_rate)
-
-    data = {
+def get_data_store():
+    return {
         "datetime": [],
         "humidity": [],
         "temperature": [],
         "pressure": [],
         "light": [],
     }
+
+
+def main():
+    # arduino specific params
+    serial_port = "COM6"
+    baud_rate = 9600
+    try:  # connecting to a arduino
+        ser = serial.Serial(serial_port, baud_rate)
+    except Exception as e:
+        print(e, "\n")
+        print("="*20)
+        print("One of the fllowing issues has occured:\n- Arduino is not properly connected\n- The port name is not correct\n\t- Try `python -m serial.tools.list_ports` to list all the ports")
+        print("="*20)
+        print("retrying in 10 seconds")
+        return
+
+    # variables to be used
+    data = get_data_store()
     x_width = 100
     x_vec = np.arange(0, x_width)
     h_vec, t_vec, p_vec, l_vec = np.zeros((4, len(x_vec)))
     lines, axes = [], []
+    def get_file_name():return str(datetime.now())[:-7].replace(":", "_") + ".csv"
+    file_name = get_file_name()
 
     while True:
+        # 1 line at a time
         line = ser.readline()
         line = line.decode("utf-8")
 
-        try:
+        try:  # parsing the input
             params = line.split(", ")[:-1]
             params = list(map(lambda x: x.split(" = ")[-1], params))
             humidity = float(params[0][:-1])  # %
@@ -46,22 +71,30 @@ def main():
         data["pressure"].append(pressure)
         data["light"].append(light)
 
-        # saving to the dated file every 10 seconds
-        if len(data["humidity"]) % 10 == 0:
-            pd.DataFrame(data).to_csv(str(date.today()) + ".csv", index=False)
+        print(data["datetime"][0].date(), datetime.today().date())
+        if data["datetime"][0].date() != datetime.today().date():
+            # separating data
+            old_data = {}
+            for vec_name in data.keys():
+                old_data[vec_name] = data[vec_name][:-1]
+                data[vec_name] = [data[vec_name][-1]]
+            # saving yesterdays data
+            pd.DataFrame(old_data).to_csv(file_name, index=False)
+            del old_data
+            # saving todays data
+            file_name = get_file_name()
+            pd.DataFrame(data).to_csv(file_name, index=False)
 
-        if len(data["humidity"]) > 0:
-            lines, axes = update_plot(
-                np.array([
-                    data["humidity"],
-                    data["temperature"],
-                    data["pressure"],
-                    data["light"],
-                ]),
-                lines,
-                axes,
-                x_width,
-            )
+        if len(data['datetime'])%10 == 0:
+            try:
+                pd.DataFrame(data).to_csv(file_name, index=False)
+            except Exception as e:
+                print(e)
+                print("MAYBE: The file which is being written to seems to be opened by another application. Please close it too continue writing to file.")
+
+        # making/updating the plots on the dashboard
+        y_vecs = np.array([data["humidity"], data["temperature"], data["pressure"], data["light"]])
+        lines, axes = update_plot(y_vecs, lines, axes, x_width)
 
 
 def update_plot(y_vecs, lines, axes, size):
@@ -88,18 +121,12 @@ def update_plot(y_vecs, lines, axes, size):
             axes[-1].grid()
     else: # then just update the data
         for i in range(4):
-            lines[i], axes[i] = set_y(lines[i], axes[i], y_vecs[i])
+            ar_max, ar_min = max(y_vecs[i]), min(y_vecs[i])
+            pad = 0.2 * (ar_max - ar_min)
+            lines[i].set_ydata(y_vecs[i])
+            axes[i].set_ylim([ar_min - pad, ar_max + pad])
         plt.pause(0.1)
     return lines, axes  # To get these back later on
-
-
-def set_y(line, ax, arr):
-    ar_max = max(arr)
-    ar_min = min(arr)
-    pad = 0.2 * (ar_max - ar_min)
-    line.set_ydata(arr)
-    ax.set_ylim([ar_min - pad, ar_max + pad])
-    return line, ax
 
 
 if __name__ == "__main__":
