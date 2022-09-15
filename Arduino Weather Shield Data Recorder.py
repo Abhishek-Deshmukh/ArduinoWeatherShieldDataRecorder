@@ -10,7 +10,7 @@ Author: Abhishek Anil Deshmukh (deshmukhabhishek369@gmail.com)
 """
 import serial
 import numpy as np
-from datetime import datetime, date
+from datetime import datetime
 import pandas as pd
 from live_plot import Plot
 import configparser
