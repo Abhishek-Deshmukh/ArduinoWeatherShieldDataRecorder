@@ -70,7 +70,7 @@ def main():
         if data["datetime"][0].date() != datetime.today().date():
             # separating data
             old_data = {}
-            for vec_name in data.keys():
+            for vec_name in data:
                 old_data[vec_name] = data[vec_name][:-1]
                 data[vec_name] = [data[vec_name][-1]]
             # saving yesterdays data
